@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="ur" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Trader Hub Live</title>
+<style>
+:root{--bg:#f6f7f9;--card:#fff;--tx:#14181f;--mu:#68707d;--bd:#e1e4e9;--ac:#0f766e;--up:#15803d;--dn:#b91c1c}
+@media (prefers-color-scheme:dark){:root{--bg:#0e1116;--card:#171b22;--tx:#e8ebf0;--mu:#8b94a3;--bd:#272d37;--ac:#2dd4bf;--up:#4ade80;--dn:#f87171}}
+*{box-sizing:border-box}body{margin:0;padding:12px;background:var(--bg);color:var(--tx);font:15px/1.6 system-ui,"Noto Nastaliq Urdu",sans-serif}
+h1{font-size:19px;margin:2px 0}.card{background:var(--card);border:1px solid var(--bd);border-radius:12px;padding:12px;margin-bottom:12px}
+.row{display:flex;flex-wrap:wrap;gap:6px;align-items:center}button{font:inherit;color:var(--tx);background:var(--card);border:1px solid var(--bd);border-radius:8px;padding:6px 12px;cursor:pointer;flex:1}
+button.on{background:var(--ac);color:#fff;border-color:var(--ac)}.tw{overflow-x:auto}table{width:100%;border-collapse:collapse;direction:ltr;font-size:14px}
+td,th{padding:7px 8px;border-bottom:1px solid var(--bd);text-align:left;white-space:nowrap}tr.p{cursor:pointer}
+.up{color:var(--up)}.dn{color:var(--dn)}.mu{color:var(--mu);font-size:13px}a{color:var(--ac);text-decoration:none}
+.n{padding:8px 0;border-bottom:1px solid var(--bd)}.bar{height:10px;border-radius:5px;background:var(--dn);overflow:hidden;direction:ltr}.bar i{display:block;height:100%;background:var(--up)}
+.ltr{direction:ltr;text-align:left}.hi{border-inline-start:3px solid var(--dn);padding-inline-start:8px}
+</style>
+</head>
+<body>
+<div class="row"><h1>📊 Trader Hub Live</h1><span class="mu" id="up" style="margin-inline-start:auto">لوڈ ہو رہا ہے…</span></div>
+<div class="card row" id="tabs"></div>
+<div id="v"></div>
+<script>
+const T=[["ov","خلاصہ"],["news","نیوز"],["cal","کیلنڈر"],["cot","COT"],["fund","فنڈامینٹلز"]];
+const FN={d1:"Trend D1",h1:"Trend H1",rsi:"RSI",macd:"MACD",cot:"COT"};
+let D=null,tab="ov",sel=null;
+const bias=s=>s>=62?["مضبوط Buy","up"]:s>=55?["ہلکا Buy","up"]:s<=38?["مضبوط Sell","dn"]:s<=45?["ہلکا Sell","dn"]:["نیوٹرل","mu"];
+const esc=s=>String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;");
+const hm=t=>new Date(t).toLocaleString("en-GB",{weekday:"short",hour:"2-digit",minute:"2-digit",day:"2-digit",month:"short"});
+const R={
+ov(){let h='<div class="card tw"><table><tr><th>Pair</th><th>Price</th><th>%</th><th>RSI</th><th>Score</th><th>Bias</th></tr>';
+ for(const[p,x]of Object.entries(D.pairs)){const b=bias(x.score);h+=`<tr class="p" onclick="sel=sel=='${p}'?null:'${p}';draw()"><td><b>${p}</b></td><td>${x.price.toFixed(x.price>500?1:4)}</td><td class="${x.chg>=0?'up':'dn'}">${x.chg.toFixed(2)}</td><td>${x.rsi?x.rsi.toFixed(0):'-'}</td><td><b>${x.score}</b></td><td class="${b[1]}">${b[0]}</td></tr>`;
+ if(sel==p)h+=`<tr><td colspan="6" class="mu">`+Object.entries(x.factors).map(([k,v])=>`${FN[k]}: <b class="${v>0?'up':v<0?'dn':''}">${v>0?'+':''}${v}</b>`).join(" &nbsp;|&nbsp; ")+`</td></tr>`}
+ return h+'</table><p class="mu">سکور خود بخود: ٹرینڈ (D1/H1)، RSI، MACD اور COT سے۔ پیئر پر ٹیپ کریں تو تفصیل کھلے گی۔</p></div>'},
+news(){return '<div class="card">'+(D.news.length?D.news.map(n=>`<div class="n"><a href="${esc(n.link)}" target="_blank" rel="noopener">${esc(n.title)}</a><div class="mu ltr">${esc(n.src)} • ${n.time?hm(n.time):''}</div></div>`).join(""):'<p class="mu">ابھی نیوز دستیاب نہیں</p>')+'</div>'},
+cal(){const now=Date.now();return '<div class="card tw"><table><tr><th>Time</th><th>Cur</th><th>Event</th><th>Actual</th><th>Forecast</th><th>Prev</th></tr>'+D.calendar.map(e=>`<tr class="${e.impact=='High'?'hi':''}" style="${e.time<now-36e5?'opacity:.7':''}"><td>${hm(e.time)}</td><td>${esc(e.country)}</td><td>${esc(e.title)}</td><td><b>${esc(e.actual)}</b></td><td>${esc(e.forecast)}</td><td>${esc(e.previous)}</td></tr>`).join("")+'</table><p class="mu">سرخ لکیر = High impact۔ Actual آتے ہی خود بھر جاتا ہے۔</p></div>'},
+cot(){const c=D.cot||{};return '<div class="card">'+(Object.keys(c).length?Object.entries(c).map(([k,x])=>{const pc=Math.round(100*x.long/(x.long+x.short));return `<div style="margin-bottom:12px"><b>${k}</b> <span class="mu ltr">Net ${x.net.toLocaleString()} (<span class="${x.change>=0?'up':'dn'}">${x.change>=0?'+':''}${x.change.toLocaleString()}</span> WoW) • ${x.date}</span><div class="bar"><i style="width:${pc}%"></i></div></div>`}).join(""):'<p class="mu">COT ڈیٹا دستیاب نہیں</p>')+'<p class="mu">Non-commercial (Speculators) پوزیشنز — CFTC سے خودکار۔</p></div>'},
+fund(){if(!D.hasFred)return '<div class="card"><p>US فنڈامینٹلز (Rate, CPI, NFP, GDP) کے لیے مفت FRED API key درکار ہے۔ سرور پر <b class="ltr">FRED_API_KEY</b> سیٹ کریں، پھر یہاں خود آنے لگیں گے۔ تب تک کیلنڈر ٹیب میں ڈیٹا ریلیز خودکار ہے۔</p></div>';
+ return '<div class="card tw"><table><tr><th>Indicator</th><th>Latest</th><th>Previous</th><th>Date</th></tr>'+(D.fred||[]).map(f=>`<tr><td>${esc(f.label)}</td><td><b>${f.val}</b></td><td>${f.prev}</td><td>${f.date}</td></tr>`).join("")+'</table></div>'}
+};
+function draw(){document.getElementById("tabs").innerHTML=T.map(t=>`<button class="${t[0]==tab?'on':''}" onclick="tab='${t[0]}';draw()">${t[1]}</button>`).join("");
+ document.getElementById("v").innerHTML=D?R[tab]():'<div class="card">لوڈ ہو رہا ہے… (پہلی بار 10–20 سیکنڈ لگ سکتے ہیں)</div>'}
+async function load(){try{D=await(await fetch("/api/data")).json();document.getElementById("up").textContent="آخری اپڈیٹ: "+new Date(D.updated).toLocaleTimeString()}catch(e){document.getElementById("up").textContent="کنکشن مسئلہ"}draw()}
+draw();load();setInterval(load,60000);
+</script>
+</body>
+</html>
